@@ -1,0 +1,16 @@
+# Output & cache
+*.wav
+*.mp4
+*.m4a
+*.flv
+*.webm
+*.mkv
+.DS_Store
+__pycache__/
+*.pyc
+.venv/
+
+# Local dev
+/tmp_test/
+/scratch/
+.omc/
