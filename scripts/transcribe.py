@@ -82,14 +82,17 @@ def download_audio(target: str, out: Path) -> tuple[Path, str]:
         return wav_path, title
 
     tmp_template = str(out / f"{vid}.%(ext)s")
-    print(f"  ⬇️  下载视频 (worst format)")
+    print(f"  ⬇️  下载音轨")
+    # format selector fallback 链, 兼顾两种 B 站布局:
+    #   DASH 视频 (音视频分离) → worstaudio/bestaudio 直接拿 audio-only 流 (最省带宽)
+    #   muxed-only 视频        → 降级到 worst/best 整段, 再 ffmpeg 抽音频
     r = subprocess.run(
         [
             "yt-dlp",
             "--cookies-from-browser",
             "chrome",
             "-f",
-            "worst",
+            "worstaudio/bestaudio/worst/best",
             "-o",
             tmp_template,
             target,
@@ -101,13 +104,15 @@ def download_audio(target: str, out: Path) -> tuple[Path, str]:
     if r.returncode != 0:
         raise RuntimeError(f"yt-dlp dl failed: {r.stderr[-400:]}")
 
+    # 接受音频流 (.m4a/.aac/.opus/.mp3/.ogg/.webm) 或 muxed 视频 (.mp4/.flv/.mkv...)
+    media_suffixes = {
+        ".m4a", ".aac", ".opus", ".mp3", ".ogg",
+        ".mp4", ".flv", ".m4s", ".webm", ".mkv",
+    }
     cand = sorted(out.glob(f"{vid}.*"), key=lambda p: p.stat().st_size, reverse=True)
-    video_file = next(
-        (c for c in cand if c.suffix in {".mp4", ".flv", ".m4s", ".webm", ".mkv"}),
-        None,
-    )
+    video_file = next((c for c in cand if c.suffix in media_suffixes), None)
     if not video_file:
-        raise RuntimeError(f"no video file for {vid}")
+        raise RuntimeError(f"no media file for {vid} (got: {[c.name for c in cand]})")
 
     print(f"  🔊 ffmpeg 抽音频 16kHz mono")
     r2 = subprocess.run(
